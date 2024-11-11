@@ -9,10 +9,12 @@ using namespace std;
 const string example1 = " dim ab , b integer \n dim c , d boolean \n a := 532.1 \n c := true \n if ( a = = 0101b ) begin b := 6 ; a := 3 end \n else b := 4 \n while ( c != false ) begin a := a - 1 ; c := false end \n (* test example #1 *) \n end";
 const string example2 = " dim a , c real \n c := 1 \n while ( c < 2 && c > 0 ) begin \n a := 0102321H ; c := c + 1 end \n end";
 const string example3 = " dim a , i integer \n readln a (* ввод значения переменной a *) \n for i := 1 to i <= a step i + 2 begin \n writeln i , 2 , 3 ; \n readln a \n end next \n end";
-const string example4 = " dim a , b integer \n while ( x > 3 ) begin writeln x ; x := x + 1 end \n end";
+const string example4 = " dim a , b , x integer \n while ( x > 3 ) begin writeln x ; x := x + 1 end \n end";
 const string example5 = " dim a , b integer \n if ( a = = 2 ) writeln a \n while ( a < 3 ) a := a + 3 \n end";
 
 const string count_factorial = " dim a , i integer \n readln a (* ввод числа, для которого вычисляется факториал *) \n if ( a = = 0 ) writeln 1 \n else begin \n for i := 1 to i <= a \n a := a * i \n next ; \n writeln a \n end \n end";
+const string count_average = " dim a , sum real (* объявление переменных для ввода значений и накопления суммы *) \n dim i , count (* объявление переменных для иетариции цикла и количества вводимых значений *) integer \n readln count \n for i := 1 to count \n begin \n readln a ; \n sum := sum + a \n end \n next \n writeln sum / count \n end";
+const string count_triangle_perimeter = " dim a , b , c integer \n readln a , b , c \n if ( a >= b + c || b >= a + c || c >= a + b ) \n writeln 0 \n  else \n writeln a + b + c \n end";
 
 class Lexer {
 	friend class Syntaxer; // выделение синтаксеру доступа к закрытым полям
@@ -239,7 +241,7 @@ public:
 	string getMessage() const {
 		int i = 1;
 		int sum = lx.tokens_per_string[0];
-		while (sum <= index) {
+		while (i < lx.tokens_per_string.size() && sum <= index) {
 			sum += lx.tokens_per_string[i];
 			i++;
 		}
@@ -331,6 +333,9 @@ private:
 			index++; // пропуск "dim"
 			while (index < lex_res.size() && lex_res[index].first == 4) { // пока встречается идентификатор
 				descNode->children.push_back(new Node(lexResToString(lex_res[index])));
+				if (find(described.begin(), described.end(), lexResToString(lex_res[index])) != described.end()) { // при повторном объявлении переменной 
+					throw SemanticError("Ошибка. Код: 16. Комментарий: повторное объявление переменной.\n", index, lx);
+				}
 				described.push_back(lexResToString(lex_res[index])); // добавление переменной в список объявленных
 				index++;
 				if (index < lex_res.size() && lex_res[index].first == 2 && lex_res[index].second == 13) { // при встрече запятой
@@ -344,6 +349,9 @@ private:
 				for (Node* p : descNode->children) {
 					p->children.push_back(new Node(lexResToString(lex_res[index]))); // добавление типа для каждой переменной
 				}
+				if (index < lex_res.size() - 1 && lex_res[index + 1].first == 1 && (lex_res[index + 1].second == 3 || lex_res[index + 1].second == 4 || lex_res[index + 1].second == 5)) { // при указании нескольких типов
+					throw SyntaxError("Ошибка. Код: 15. Комментарий: многократное объявление типа данных.\n", index, lx);
+				}
 				index++;
 			}
 			else {
@@ -351,6 +359,10 @@ private:
 			}
 		}
 		catch (const SyntaxError& e) {
+			cerr << e.getMessage();
+			exit(1);
+		}
+		catch (const SemanticError& e) {
 			cerr << e.getMessage();
 			exit(1);
 		}
@@ -439,7 +451,11 @@ private:
 				if (index < lex_res.size() && !(lex_res[index].first == 2 && lex_res[index].second == 17)) {
 					throw SyntaxError("Ошибка. Код: 4. Комментарий: требуется наличие закрывающей скобки ')'.\n", index, lx);
 				}
-				if ((index < lex_res.size() - 1 && ((lex_res[index + 1].first == 1 && lex_res[index + 1].second == 7) || (lex_res[index + 1].first == 1 && lex_res[index + 1].second == 13) || (lex_res[index + 1].first == 1 && lex_res[index + 1].second == 9) || (lex_res[index + 1].first == 1 && lex_res[index + 1].second == 14) || (lex_res[index + 1].first == 1 && lex_res[index + 1].second == 15) || (lex_res[index + 1].first == 1 && lex_res[index + 1].second == 6)) || (index < lex_res.size() - 2 && lex_res[index + 2].first == 2 && lex_res[index + 2].second == 23))) {
+				if ((index < lex_res.size() - 1 && ((lex_res[index + 1].first == 1 && lex_res[index + 1].second == 7) || (lex_res[index + 1].first == 1 && lex_res[index + 1].second == 13) || (lex_res[index + 1].first == 1 && lex_res[index + 1].second == 9) || (lex_res[index + 1].first == 1 && lex_res[index + 1].second == 14) || (lex_res[index + 1].first == 1 && lex_res[index + 1].second == 15) || (lex_res[index + 1].first == 1 && lex_res[index + 1].second == 6)))) {
+					whileNode->children.push_back(OPERATOR()); // разбор оператора в цикле
+				}
+				else if (index < lex_res.size() - 2 && lex_res[index + 2].first == 2 && lex_res[index + 2].second == 23) {
+					index++;
 					whileNode->children.push_back(OPERATOR()); // разбор оператора в цикле
 				}
 				else {
@@ -484,7 +500,14 @@ private:
 						throw SyntaxError("Ошибка. Код: 9. Комментарий: пустое тело цикла.\n", index, lx);
 					}
 					forNode->children.push_back(OPERATOR());
-					if (forNode->children[forNode->children.size() - 1]->value == "compound") index--;
+					for (Node* p : forNode->children) {
+						if (p->value == "operator") {
+							if (p->children[p->children.size() - 1]->value == "compound") {
+								index--;
+								break;
+							}
+						}
+					}
 					if (index < lex_res.size() - 1 && lex_res[index + 1].first == 1 && lex_res[index + 1].second == 12) index++;
 					else {
 						throw SyntaxError("Ошибка. Код: 8. Комментарий: требуется наличие ключевого слова next.\n", index, lx);
@@ -571,6 +594,9 @@ private:
 				else {
 					throw SyntaxError("Ошибка. Код: 1. Комментарий: требуется наличие ключевого слова end.\n", index, lx);
 				}
+			}
+			if (index == lex_res.size() - 1) {
+				throw SyntaxError("Ошибка. Код: 1. Комментарий: требуется наличие ключевого слова end.\n", index, lx);
 			}
 			if (index < lex_res.size()) {
 				index++;
@@ -680,10 +706,8 @@ private:
 int main() {
 	setlocale(LC_ALL, "");
 	Lexer lx;
-	cout << count_factorial << '\n';
-	vector <pair <int, int> > answ = lx.lex_analyz(count_factorial + " ");
-	cout << "\n";
-	for (int i = 0; i < answ.size(); i++) cout <<"(" << answ[i].first << " " << answ[i].second << "), ";
+	cout << count_average << '\n';
+	vector <pair <int, int> > answ = lx.lex_analyz(count_average + " ");
 	cout << "\n";
 	Syntaxer sx(lx);
 	Node* r = sx.synt_analyz(answ);
