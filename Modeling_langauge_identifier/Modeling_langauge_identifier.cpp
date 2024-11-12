@@ -2,7 +2,6 @@
 #include<vector>
 #include<string>
 #include<regex>
-#include<queue>
 
 using namespace std;
 
@@ -10,11 +9,11 @@ const string example1 = " dim ab , b integer \n dim c , d boolean \n a := 532.1 
 const string example2 = " dim a , c real \n c := 1 \n while ( c < 2 && c > 0 ) begin \n a := 0102321H ; c := c + 1 end \n end";
 const string example3 = " dim a , i integer \n readln a (* ввод значения переменной a *) \n for i := 1 to i <= a step i + 2 begin \n writeln i , 2 , 3 ; \n readln a \n end next \n end";
 const string example4 = " dim a , b , x integer \n while ( x > 3 ) begin writeln x ; x := x + 1 end \n end";
-const string example5 = " dim a , b integer \n if ( a = = 2 ) writeln a \n while ( a < 3 ) a := a + 3 \n end";
+const string example5 = " dim a , b integer \n if ( a > 2 ) if ( b = = 3 ) writeln b else writeln a else writeln 1 \n end";
 
-const string count_factorial = " dim a , i integer \n readln a (* ввод числа, для которого вычисляется факториал *) \n if ( a = = 0 ) writeln 1 \n else begin \n for i := 1 to i <= a \n a := a * i \n next ; \n writeln a \n end \n end";
-const string count_average = " dim a , sum real (* объявление переменных для ввода значений и накопления суммы *) \n dim i , count (* объявление переменных для иетариции цикла и количества вводимых значений *) integer \n readln count \n for i := 1 to count \n begin \n readln a ; \n sum := sum + a \n end \n next \n writeln sum / count \n end";
-const string count_triangle_perimeter = " dim a , b , c integer \n readln a , b , c \n if ( a >= b + c || b >= a + c || c >= a + b ) \n writeln 0 \n  else \n writeln a + b + c \n end";
+const string count_factorial = " dim a , i integer \n readln a (* ввод числа, для которого вычисляется факториал *) \n if ( a = = 0 ) writeln 1 else begin for i := 1 to i <= a a := a * i next ; writeln a end \n end";
+const string count_average = " dim a , sum real (* объявление переменных для ввода значений и накопления суммы *) \n dim i , count (* объявление переменных для иетариции цикла и количества вводимых значений *) integer \n readln count \n for i := 1 to count begin readln a ; sum := sum + a end next \n writeln sum / count \n end";
+const string count_triangle_perimeter = " dim a , b , c integer \n readln a , b , c \n if ( a >= b + c || b >= a + c || c >= a + b ) writeln 0 else writeln a + b + c \n end";
 
 class Lexer {
 	friend class Syntaxer; // выделение синтаксеру доступа к закрытым полям
@@ -32,8 +31,8 @@ public: Lexer() {
 				"for", "to", "step", "next", "while",
 				"readln", "writeln", "true", "false" };
 	delimiters = vector <string>{ "!=", "= =", "<", "<=", ">", ">=",
-				  "+", "-", "||", "*", "/", "&&", ",", ";",
-				  "!", "(", ")", "(*", "*)", "{", "}", ":=" };
+				  "+", "-", "||", "*", "/", "&&", ",", ":", ";",
+				  "!", "(", ")", "(*", "*)", "{", "}", ":=" , "\n"};
 	numbers = {};
 	identificators = {};
 	tokens_per_string = {};
@@ -91,6 +90,7 @@ public: vector <pair<int, int> > lex_analyz(string s) {
 			else if (s[i] == ' ' || s[i] == '\n' || s[i] == '\t') {
 				if (s[i] == '\n') {
 					tokens_per_string.push_back(count); // запись количества токенов в текущей строке
+					result.push_back(pair <int, int>(2, 24));
 					count = 0;
 				}
 				continue; // переход к следующему входному символу
@@ -102,7 +102,13 @@ public: vector <pair<int, int> > lex_analyz(string s) {
 			break;
 		case 'A':
 			if (temp + s[i] == ":=") { // при формировании знака присваивания - добавление токена
-				result.push_back(pair <int, int>(2, find(delimiters.begin(), delimiters.end(), s) - delimiters.begin() + 1));
+				result.push_back(pair <int, int>(2, find(delimiters.begin(), delimiters.end(), temp + s[i]) - delimiters.begin() + 1));
+				count++;
+				temp = "";
+				state = 'H';
+			}
+			else if (s[i] == ' ') { // при формировании разделителя - двоеточия
+				result.push_back(pair <int, int>(2, find(delimiters.begin(), delimiters.end(), temp) - delimiters.begin() + 1));
 				count++;
 				temp = "";
 				state = 'H';
@@ -301,16 +307,25 @@ private:
 			while (index < lex_res.size() && !(lex_res[index].first == 1 && lex_res[index].second == 1)) {
 				if (lex_res[index].first == 1 && lex_res[index].second == 2) { // "dim"
 					programNode->children.push_back(DESC());
-					continue;
 				}
 				else {
 					programNode->children.push_back(OPERATOR());
 				}
-				if (index < lex_res.size() && lex_res[index].first == 2 && lex_res[index].second == 1) { // ":"
-					index++; // пропуск двоеточия
+				if (index < lex_res.size() - 1 && (lex_res[index].first == 2 && lex_res[index].second == 14 || lex_res[index].first == 2 && lex_res[index].second == 24)) { // ":" || \n
+					if (index < lex_res.size() - 2 && (lex_res[index + 1].first == 2 && lex_res[index + 1].second == 14 || lex_res[index + 1].first == 2 && lex_res[index + 1].second == 24)) {
+						throw SyntaxError("Ошибка. Код: 19. Комментарий: Недопустимо использование двух разграничителей операторов подряд", index, lx);
+					}
+					index++; // пропуск двоеточия или переноса строки
 				}
-				if (index >= lex_res.size()) break;
-				index++;
+				else if (index < lex_res.size() - 2 && (lex_res[index + 1].first == 2 && lex_res[index + 1].second == 16 || lex_res[index + 1].first == 2 && lex_res[index + 1].second == 24)) {
+					if (index < lex_res.size() - 3 && (lex_res[index + 2].first == 2 && lex_res[index + 2].second == 16 || lex_res[index + 2].first == 2 && lex_res[index + 1].second == 24)) {
+						throw SyntaxError("Ошибка. Код: 19. Комментарий: Недопустимо использование двух разграничителей операторов подряд", index, lx);
+					}
+					index += 2;
+				}
+				else {
+					throw SyntaxError("Ошибка. Код: 18. Комментарий: требуется наличие двоеточия ':' или переноса строки.\n", index, lx);
+				}
 			}
 			if (index == lex_res.size() && !(lex_res[index - 1].first == 1 && lex_res[index - 1].second == 1)) {
 				throw SyntaxError("Ошибка. Код: 1. Комментарий: требуется наличие ключевого слова end.\n", index, lx);
@@ -394,6 +409,9 @@ private:
 		else if (lex_res[index].first == 1 && lex_res[index].second == 6) { // Составной оператор "begin ... end"
 			operatorNode->children.push_back(COMP());
 		}
+		else {
+			throw SyntaxError("Ошибка. Код: 17. Комментарий: требуется наличие оператора.\n", index, lx);
+		}
 		return operatorNode;
 	}
 
@@ -409,27 +427,27 @@ private:
 		Node* condNode = new Node("if"); // создание ветки для разбора условного оператора
 		try {
 			index++; // пропуск "if"
-			if (lex_res[index].first == 2 && lex_res[index].second == 16) { // "("
+			if (lex_res[index].first == 2 && lex_res[index].second == 17) { // "("
 				index++;
 				condNode->children.push_back(EXPR()); // разбор условия
-				if (index < lex_res.size() && !(lex_res[index].first == 2 && lex_res[index].second == 17)) {
+				if (index < lex_res.size() && !(lex_res[index].first == 2 && lex_res[index].second == 18)) {
 					throw SyntaxError("Ошибка. Код: 4. Комментарий: требуется наличие закрывающей скобки ')'.\n", index, lx);
 				}
 				index++; // пропуск ")"
 				condNode->children.push_back(OPERATOR()); // разбор оператора после условия
-				if (condNode->children[condNode->children.size() - 1]->children[condNode->children[condNode->children.size() - 1]->children.size() - 1]->value != "writeln") index--;
+				//if (condNode->children[condNode->children.size() - 1]->children[condNode->children[condNode->children.size() - 1]->children.size() - 1]->value != "writeln") index--;
 				if (index < lex_res.size() - 1 && lex_res[index + 1].first == 1 && lex_res[index + 1].second == 8) { // "else"
 					index += 2;
 					Node* parseElse = new Node("else");
 					condNode->children.push_back(parseElse);
 					parseElse->children.push_back(OPERATOR()); // разбор выражения после else
 				}
-				//else if (index < lex_res.size() && lex_res[index].first == 1 && lex_res[index].second == 8) {
-				//	index++;
-				//	Node* parseElse = new Node("else");
-				//	condNode->children.push_back(parseElse);
-				//	parseElse->children.push_back(OPERATOR()); // разбор выражения после else
-				//}
+				else if (index < lex_res.size() && lex_res[index].first == 1 && lex_res[index].second == 8) {
+					index++;
+					Node* parseElse = new Node("else");
+					condNode->children.push_back(parseElse);
+					parseElse->children.push_back(OPERATOR()); // разбор выражения после else
+				}
 			}
 			else {
 				throw SyntaxError("Ошибка. Код: 5. Комментарий: требуется наличие открывающей скобки '('.\n", index, lx);
@@ -445,10 +463,10 @@ private:
 		Node* whileNode = new Node("while"); // создание ветки для разбора условного цикла
 		try {
 			index++; // пропуск "while"
-			if (lex_res[index].first == 2 && lex_res[index].second == 16) { // "("
+			if (lex_res[index].first == 2 && lex_res[index].second == 17) { // "("
 				index++;
 				whileNode->children.push_back(EXPR()); // разбор условия цикла
-				if (index < lex_res.size() && !(lex_res[index].first == 2 && lex_res[index].second == 17)) {
+				if (index < lex_res.size() && !(lex_res[index].first == 2 && lex_res[index].second == 18)) {
 					throw SyntaxError("Ошибка. Код: 4. Комментарий: требуется наличие закрывающей скобки ')'.\n", index, lx);
 				}
 				if ((index < lex_res.size() - 1 && ((lex_res[index + 1].first == 1 && lex_res[index + 1].second == 7) || (lex_res[index + 1].first == 1 && lex_res[index + 1].second == 13) || (lex_res[index + 1].first == 1 && lex_res[index + 1].second == 9) || (lex_res[index + 1].first == 1 && lex_res[index + 1].second == 14) || (lex_res[index + 1].first == 1 && lex_res[index + 1].second == 15) || (lex_res[index + 1].first == 1 && lex_res[index + 1].second == 6)))) {
@@ -587,7 +605,7 @@ private:
 			while (index < lex_res.size() && !(lex_res[index].first == 1 && lex_res[index].second == 1)) {
 				compoundNode->children.push_back(OPERATOR());
 				index++;
-				if (lex_res[index].first == 2 && lex_res[index].second == 14) { // ";"
+				if (lex_res[index].first == 2 && lex_res[index].second == 15) { // ";"
 					index++;
 				}
 				else if (lex_res[index].first == 1 && lex_res[index].second == 1) break;
@@ -613,7 +631,7 @@ private:
 	Node* EXPR() {
 		Node* exprNode = new Node("expression"); // создание ветки для выражения
 		exprNode->children.push_back(OPERAND());
-		while (index < lex_res.size() && isRelationOp(lex_res[index]) && !(lex_res[index].first == 2 && lex_res[index].second == 17)) {
+		while (index < lex_res.size() && isRelationOp(lex_res[index]) && !(lex_res[index].first == 2 && lex_res[index].second == 18)) {
 			exprNode->children.push_back(new Node(lexResToString(lex_res[index])));
 			index++;
 			exprNode->children.push_back(OPERAND());
@@ -650,17 +668,17 @@ private:
 					index++; // Пропускаем логическую константу
 				}
 				// Проверяем на унарную операцию
-				else if (lex_res[index].first == 2 && lex_res[index].second == 7) { // Унарная операция "!"
+				else if (lex_res[index].first == 2 && lex_res[index].second == 16) { // Унарная операция "!"
 					Node* unaryNode = new Node("!");
 					index++; // Пропускаем "!"
 					unaryNode->children.push_back(OPERAND()); // Рекурсивно разбираем следующий операнд
 					operandNode->children.push_back(unaryNode);
 				}
 				// Проверяем на выражение в скобках
-				else if (lex_res[index].first == 2 && lex_res[index].second == 11) { // "("
+				else if (lex_res[index].first == 2 && lex_res[index].second == 17) { // "("
 					index++; // Пропускаем "("
 					operandNode->children.push_back(EXPR()); // Разбираем выражение внутри скобок
-					if (index < lex_res.size() && lex_res[index].first == 2 && lex_res[index].second == 12) { // ")"
+					if (index < lex_res.size() && lex_res[index].first == 2 && lex_res[index].second == 18) { // ")"
 						index++; // Пропускаем ")"
 					}
 					else {
@@ -706,8 +724,8 @@ private:
 int main() {
 	setlocale(LC_ALL, "");
 	Lexer lx;
-	cout << count_average << '\n';
-	vector <pair <int, int> > answ = lx.lex_analyz(count_average + " ");
+	cout << example5<< '\n';
+	vector <pair <int, int> > answ = lx.lex_analyz(example5 + " ");
 	cout << "\n";
 	Syntaxer sx(lx);
 	Node* r = sx.synt_analyz(answ);
