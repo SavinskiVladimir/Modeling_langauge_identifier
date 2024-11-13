@@ -5,16 +5,6 @@
 
 using namespace std;
 
-const string example1 = " dim ab , b integer \n dim c , d boolean \n a := 532.1 \n c := true \n if ( a = = 0101b ) begin b := 6 ; a := 3 end \n else b := 4 \n while ( c != false ) begin a := a - 1 ; c := false end \n (* test example #1 *) \n end";
-const string example2 = " dim a , c real \n c := 1 \n while ( c < 2 && c > 0 ) begin \n a := 0102321H ; c := c + 1 end \n end";
-const string example3 = " dim a , i integer \n readln a (* ввод значения переменной a *) \n for i := 1 to i <= a step i + 2 begin \n writeln i , 2 , 3 ; \n readln a \n end next \n end";
-const string example4 = " dim a , b , x integer \n while ( x > 3 ) begin writeln x ; x := x + 1 end \n end";
-const string example5 = " dim a , b integer \n if ( a > 2 ) if ( b = = 3 ) writeln b else writeln a else writeln 1 \n end";
-
-const string count_factorial = " dim a , i integer \n readln a (* ввод числа, для которого вычисляется факториал *) \n if ( a = = 0 ) writeln 1 else begin for i := 1 to i <= a a := a * i next ; writeln a end \n end";
-const string count_average = " dim a , sum real (* объявление переменных для ввода значений и накопления суммы *) \n dim i , count (* объявление переменных для иетариции цикла и количества вводимых значений *) integer \n readln count \n for i := 1 to count begin readln a ; sum := sum + a end next \n writeln sum / count \n end";
-const string count_triangle_perimeter = " dim a , b , c integer \n readln a , b , c \n if ( a >= b + c || b >= a + c || c >= a + b ) writeln 0 else writeln a + b + c \n end";
-
 class Lexer {
 	friend class Syntaxer; // выделение синтаксеру доступа к закрытым полям
 	friend class SyntaxError; // выделение классам обработки исключений доступа к полям
@@ -79,15 +69,15 @@ public: vector <pair<int, int> > lex_analyz(string s) {
 				temp = s[i];
 				state = 'Q'; // состояние формирования знака проверки на равенство
 			}
-			else if (int(s[i]) == 95 || int(s[i]) >= 97 && int(s[i]) <= 122 || int(s[i]) >= 65 && int(s[i]) <= 90) {
+			else if (int(s[i]) >= 97 && int(s[i]) <= 122 || int(s[i]) >= 65 && int(s[i]) <= 90) {
 				temp = s[i];
 				state = 'I'; // состояние формирования идентификатора
 			}
-			else if (s[i] == '+' || s[i] == '-' || s[i] == '.' || int(s[i]) >= 48 && int(s[i]) <= 57) {
+			else if (s[i] == '.' || int(s[i]) >= 48 && int(s[i]) <= 57) {
 				temp = s[i];
 				state = 'N'; // состояние формирования числа
 			}
-			else if (s[i] == ' ' || s[i] == '\n' || s[i] == '\t') {
+			else if (s[i] == ' ' || s[i] == '\n') {
 				if (s[i] == '\n') {
 					tokens_per_string.push_back(count); // запись количества токенов в текущей строке
 					result.push_back(pair <int, int>(2, 24));
@@ -156,30 +146,22 @@ public: vector <pair<int, int> > lex_analyz(string s) {
 			break;
 		case 'N':
 			if (s[i] == ' ') { // при чтении пробела - проверка на принадлежность сформированной последовательности к разделителям или числам
-				if (temp == "+" || temp == "-") {
-					result.push_back(pair <int, int>(2, find(delimiters.begin(), delimiters.end(), temp) - delimiters.begin() + 1));
-					count++;
+				if (is_num(temp)) { // если последовательность - число, то проверка на существование данного токена в таблице чисел
+					if (find(numbers.begin(), numbers.end(), temp) == numbers.end()) {
+						numbers.push_back(temp);
+						result.push_back(pair <int, int>(3, numbers.size()));
+						count++;
+					}
+					else {
+						result.push_back(pair <int, int>(3, find(numbers.begin(), numbers.end(), temp) - numbers.begin() + 1));
+						count++;
+					}
 					temp = "";
 					state = 'H';
 				}
 				else {
-					if (is_num(temp)) { // если последовательность - число, то проверка на существование данного токена в таблице чисел
-						if (find(numbers.begin(), numbers.end(), temp) == numbers.end()) {
-							numbers.push_back(temp);
-							result.push_back(pair <int, int>(3, numbers.size()));
-							count++;
-						}
-						else {
-							result.push_back(pair <int, int>(3, find(numbers.begin(), numbers.end(), temp) - numbers.begin() + 1));
-							count++;
-						}
-						temp = "";
-						state = 'H';
-					}
-					else {
-						state = 'E'; // в случае, если последовательность - не число, переход в состояние ошибки
-						continue;
-					}
+					state = 'E'; // в случае, если последовательность - не число, переход в состояние ошибки
+					continue;
 				}
 				temp = "";
 				state = 'H';
@@ -217,6 +199,7 @@ public: vector <pair<int, int> > lex_analyz(string s) {
 			break;
 		}
 	}
+	if (state == 'C') result = { pair <int, int>(-1, -1) }; // в случае незакрытого комментария
 	if (state == 'E' && result != vector <pair<int, int> >{ pair <int, int>(-1, -1) }) result = { pair <int, int>(-1, -1) };
 	return result;
 }
@@ -286,7 +269,7 @@ public:
 	void printTreeByLevels(Node* root) {
 		if (root->children.size() == 0) return;
 		else {
-			if (root == nullptr) return;
+			//if (root == nullptr) return;
 			cout << "\n" << root->value<<"\t";
 			for (int i = 0; i < root->children.size(); i++) {
 				cout << root->children[i]->value<<" ";
@@ -349,7 +332,7 @@ private:
 			while (index < lex_res.size() && lex_res[index].first == 4) { // пока встречается идентификатор
 				descNode->children.push_back(new Node(lexResToString(lex_res[index])));
 				if (find(described.begin(), described.end(), lexResToString(lex_res[index])) != described.end()) { // при повторном объявлении переменной 
-					throw SemanticError("Ошибка. Код: 16. Комментарий: повторное объявление переменной.\n", index, lx);
+					throw SemanticError("Ошибка. Код: 16. Комментарий: повторное объявление переменной - семантическая ошибка.\n", index, lx);
 				}
 				described.push_back(lexResToString(lex_res[index])); // добавление переменной в список объявленных
 				index++;
@@ -417,9 +400,20 @@ private:
 
 	Node* ASSIGN() { // обработка присваивания
 		Node* assignNode = new Node(":="); // создание векти для присваивания
-		assignNode->children.push_back(new Node(lexResToString(lex_res[index])));
-		index += 2; // пропуска ":="
-		assignNode->children.push_back(EXPR()); // выражение
+		try {
+			if (find(described.begin(), described.end(), lexResToString(lex_res[index])) != described.end()) { // проверка - объявлен ли идентификатор
+				assignNode->children.push_back(new Node(lexResToString(lex_res[index])));
+			}
+			else { // при встрече необъявленной переменной
+				throw SemanticError("Ошибка. Код: 13. Комментарий: необъявленная переменная - семантическая ошибка\n", index, lx);
+			}
+			index += 2; // пропуск ":="
+			assignNode->children.push_back(EXPR()); // выражение
+		}
+		catch (const SemanticError& e) {
+			cerr << e.getMessage();
+			exit(1);
+		}
 		return assignNode;
 	}
 
@@ -470,6 +464,7 @@ private:
 					throw SyntaxError("Ошибка. Код: 4. Комментарий: требуется наличие закрывающей скобки ')'.\n", index, lx);
 				}
 				if ((index < lex_res.size() - 1 && ((lex_res[index + 1].first == 1 && lex_res[index + 1].second == 7) || (lex_res[index + 1].first == 1 && lex_res[index + 1].second == 13) || (lex_res[index + 1].first == 1 && lex_res[index + 1].second == 9) || (lex_res[index + 1].first == 1 && lex_res[index + 1].second == 14) || (lex_res[index + 1].first == 1 && lex_res[index + 1].second == 15) || (lex_res[index + 1].first == 1 && lex_res[index + 1].second == 6)))) {
+					index++;
 					whileNode->children.push_back(OPERATOR()); // разбор оператора в цикле
 				}
 				else if (index < lex_res.size() - 2 && lex_res[index + 2].first == 2 && lex_res[index + 2].second == 23) {
@@ -654,7 +649,7 @@ private:
 						index++; // Пропускаем идентификатор
 					}
 					else { // при встрече необъявленной переменной
-						throw SemanticError("Ошибка. Код: 13. Комментарий: необъявленная переменная\n", index, lx);
+						throw SemanticError("Ошибка. Код: 13. Комментарий: необъявленная переменная - семантическая ошибка\n", index, lx);
 					}
 				}
 				// Проверяем на число
@@ -721,14 +716,28 @@ private:
 	}
 };
 
+
+// примеры для тестирования
+const string example1 = " dim ab , b , a integer \n dim c , d boolean \n a := 532.1 \n c := true \n if ( a = = 0101b ) begin b := 6 ; a := 3 end else b := 4 \n while ( c != false ) begin a := a - 1 ; c := false end \n (* test example #1 *) end";
+const string example2 = " dim a , c real \n c := 1 \n while ( c < 2 && c > 0 ) begin a := 0102321H ; c := c + 1 end \n end";
+const string example3 = " dim a , i integer \n readln a (* ввод значения переменной a *) \n for i := 1 to i <= a step i + 2 begin writeln i , 2 , 3 ; readln a end next \n end";
+const string example4 = " dim a , b , x integer \n while ( x > 3 ) begin if ( a = = b ) writeln 2 ; readln a end \n end";
+const string example5 = " dim a , b integer \n a := a = = b \n if ( a > 2 ) if ( b = = 3 ) writeln ! ( 1 + a )  else writeln a else writeln 1 \n end (*  комментарий *)";
+
+// примеры для тестирования - реальные программы
+const string count_factorial = " dim a , i integer \n readln a (* ввод числа, для которого вычисляется факториал *) \n if ( a = = 0 ) writeln 1 else begin for i := 1 to i <= a a := a * i next ; writeln a end \n end";
+const string count_average = " dim a , sum real (* объявление переменных для ввода значений и накопления суммы *) \n dim i , count (* объявление переменных для иетариции цикла и количества вводимых значений *) integer \n readln count \n for i := 1 to count begin readln a ; sum := sum + a end next \n writeln sum / count \n end";
+const string count_triangle_perimeter = " dim a , b , c integer \n readln a , b , c \n if ( a >= b + c || b >= a + c || c >= a + b ) writeln 0 else writeln a + b + c \n end";
+
 int main() {
 	setlocale(LC_ALL, "");
-	Lexer lx;
-	cout << example5<< '\n';
-	vector <pair <int, int> > answ = lx.lex_analyz(example5 + " ");
+	Lexer lx; // создание лексера для проведения лексического анализа
+	cout << "Исходный код программы:\n";
+	cout << example4<< '\n';
+	vector <pair <int, int> > lex_res = lx.lex_analyz(example4 + " "); // проведение лексического анализа, результат - вектор токенов
 	cout << "\n";
-	Syntaxer sx(lx);
-	Node* r = sx.synt_analyz(answ);
-	sx.printTreeByLevels(r);
+	Syntaxer sx(lx); // создание синтаксера для проведения синтаксического анализа
+	Node* r = sx.synt_analyz(lex_res); // проведение синтаксического анализа, результат - указатель на корень дерева разбора 
+	sx.printTreeByLevels(r); // вывод дерева разбора
 	return 0;
 }
