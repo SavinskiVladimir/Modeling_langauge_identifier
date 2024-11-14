@@ -343,6 +343,9 @@ private:
 					throw SyntaxError("Ошибка. Код: 2. Комментарий: требуется наличие разделителя ',' между переменными.\n", index, lx);
 				}
 			}
+			if (lex_res[index - 1].first == 2 && lex_res[index - 1].second == 13) {
+				throw SyntaxError("Ошибка. Код: 11. Комментарий: требуется наличие операнда.\n", index, lx);
+			}
 			if (index < lex_res.size() && lex_res[index].first == 1 && (lex_res[index].second == 3 || lex_res[index].second == 4 || lex_res[index].second == 5)) { // тип переменной
 				for (Node* p : descNode->children) {
 					p->children.push_back(new Node(lexResToString(lex_res[index]))); // добавление типа для каждой переменной
@@ -725,7 +728,7 @@ const string example4 = " dim a , b , x integer \n while ( x > 3 ) begin if ( a 
 const string example5 = " dim a , b integer \n a := a = = b \n if ( a > 2 ) if ( b = = 3 ) writeln ! ( 1 + a )  else writeln a else writeln 1 \n end (*  комментарий *)";
 
 // примеры для тестирования - реальные программы
-const string count_factorial = " dim a , i integer \n readln a (* ввод числа, для которого вычисляется факториал *) \n if ( a = = 0 ) writeln 1 else begin for i := 1 to i <= a a := a * i next ; writeln a end \n end";
+const string count_factorial = " dim a , integer : dim a real \n readln a (* ввод числа, для которого вычисляется факториал *) \n if ( a = = 0 ) writeln 1 else begin for i := 1 to i <= a a := a * i next ; writeln a end \n end";
 const string count_average = " dim a , sum real (* объявление переменных для ввода значений и накопления суммы *) \n dim i , count (* объявление переменных для иетариции цикла и количества вводимых значений *) integer \n readln count \n for i := 1 to count begin readln a ; sum := sum + a end next \n writeln sum / count \n end";
 const string count_triangle_perimeter = " dim a , b , c integer \n readln a , b , c \n if ( a >= b + c || b >= a + c || c >= a + b ) writeln 0 else writeln a + b + c \n end";
 
@@ -733,8 +736,8 @@ int main() {
 	setlocale(LC_ALL, "");
 	Lexer lx; // создание лексера для проведения лексического анализа
 	cout << "Исходный код программы:\n";
-	cout << example4<< '\n';
-	vector <pair <int, int> > lex_res = lx.lex_analyz(example4 + " "); // проведение лексического анализа, результат - вектор токенов
+	cout << count_factorial<< '\n';
+	vector <pair <int, int> > lex_res = lx.lex_analyz(count_factorial + " "); // проведение лексического анализа, результат - вектор токенов
 	cout << "\n";
 	Syntaxer sx(lx); // создание синтаксера для проведения синтаксического анализа
 	Node* r = sx.synt_analyz(lex_res); // проведение синтаксического анализа, результат - указатель на корень дерева разбора 
